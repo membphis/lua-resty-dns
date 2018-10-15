@@ -646,3 +646,37 @@ GET /t
 --- no_error_log
 [error]
 --- no_check_leak
+
+
+
+=== TEST 20: PTR lookup for IPv4
+--- http_config eval: $::HttpConfig
+--- config
+    location /t {
+        content_by_lua '
+            local resolver = require "resty.dns.resolver"
+
+            local r, err =
+                resolver:new{ nameservers = { "$TEST_NGINX_RESOLVER" } }
+            if not r then
+                ngx.say("failed to instantiate resolver: ", err)
+                return
+            end
+
+            local ans, err = r:reverse_query("127.0.0.1")
+            if not ans then
+                ngx.say("failed to query: ", err)
+                return
+            end
+
+            local ljson = require "ljson"
+            ngx.say("records: ", ljson.encode(ans))
+        ';
+    }
+--- request
+GET /t
+--- response_body_like chop
+^records: \[.*?"ptrdname":"localhost".*?\]$
+--- no_error_log
+[error]
+--- no_check_leak
